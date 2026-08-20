@@ -1,11 +1,15 @@
 This folder is the public website only. No Pi secrets, no tunnel token, no installer.
 
-On GitHub:
-  1. Create a new empty repo (no README)
-  2. Upload every file in this folder, including the hidden .github folder
-     Easiest: on the Mac, double-click Copy-Website-For-GitHub.command
-     then upload the Desktop/PrivacyHub-website folder
-  3. Settings -> Pages -> Source: GitHub Actions
-  4. Later, add secret API_ORIGIN = https://YOUR-HUB-HOSTNAME
+Fill config.js first (public values only):
+  window.WORKER_ORIGIN     = your https://….workers.dev URL
+  window.GOOGLE_CLIENT_ID  = Google OAuth Web client ID
 
-Site URL: https://YOURUSER.github.io/REPO/
+On this Mac:
+  Double-click Copy-Website-For-GitHub.command
+  then upload Desktop/PrivacyHub-website into the existing Sandcloud-Web repo.
+
+GitHub Pages:
+  Settings -> Pages -> Deploy from a branch -> main -> / (root) -> Save
+
+Live:
+  https://williamrcleaves-hash.github.io/Sandcloud-Web/
