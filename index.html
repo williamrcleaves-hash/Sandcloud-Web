@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Privacy Hub</title>
+<title>Sandcloud</title>
 <script src="config.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer onload="window.renderGoogle && window.renderGoogle()"></script>
 <style>
@@ -40,7 +40,7 @@
 </head>
 <body>
 <main>
-  <h1>Privacy Hub</h1>
+  <h1>Sandcloud</h1>
   <p class="meta" id="via"></p>
 
   <div id="gate">
@@ -60,7 +60,7 @@
     <div class="card">
       <div class="row">
         <div>
-          <div class="name" id="ssid">TrustHub</div>
+          <div class="name" id="ssid">Sandcloud</div>
           <div class="meta" id="summary">loading…</div>
           <div class="code" id="pair-code" style="display:none"></div>
         </div>
@@ -142,7 +142,7 @@ function showHub() {
 
 function renderState(s, routerStatus) {
   state = s;
-  $("ssid").textContent = (s && s.ssid) || "TrustHub";
+  $("ssid").textContent = (s && s.ssid) || "Sandcloud";
   $("summary").textContent = routerStatus ? statusLabel(routerStatus) : ((s && s.lan_ip) || "");
   const pairEl = $("pair-code");
   if (pairEl) {
@@ -215,7 +215,7 @@ async function refreshRemote() {
     return;
   }
   if (data.status === "no_router") {
-    showGate("No router connected", "On the Pi (TrustHub Wi-Fi), open the LAN page and enter the 6-digit code here.");
+    showGate("No router connected", "On the Pi (Sandcloud Wi-Fi), open the LAN page and enter the 6-digit code here.");
     $("pair-form").style.display = "flex";
     return;
   }
@@ -226,7 +226,7 @@ async function refreshRemote() {
   }
   if (data.status === "offline") {
     showHub();
-    renderState(data.snapshot || { ssid: "TrustHub", devices: [] }, "offline");
+    renderState(data.snapshot || { ssid: "Sandcloud", devices: [] }, "offline");
     return;
   }
   showHub();
