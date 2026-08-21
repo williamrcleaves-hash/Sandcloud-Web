@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sandcloud</title>
 <script src="config.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer onload="window.renderGoogle && window.renderGoogle()"></script>
+<script src="auth.js"></script>
 <style>
   :root { --bg:#0c0c0c; --card:#161616; --line:#2a2a2a; --text:#eee; --dim:#8a8a8a; --ok:#c4e1c4; --bad:#e6b0aa; }
   * { box-sizing: border-box; }
@@ -50,8 +50,10 @@
   <div id="gate">
     <div class="card">
       <div class="name" id="gate-title">Sign in</div>
-      <div class="meta" id="gate-msg">Sign in with Google to manage your router from anywhere. No separate account to create.</div>
-      <div id="google-btn" style="margin-top:1rem"></div>
+      <div class="meta" id="gate-msg">Sign in with Google to manage your router from anywhere. Your account is stored securely.</div>
+      <div id="google-btn" style="margin-top:1rem">
+        <button type="button" id="signin-btn" class="big on">Sign in with Google</button>
+      </div>
       <p class="meta" style="margin-top:1rem">Sign in with Apple — not enabled yet</p>
       <form id="pair-form" style="display:none">
         <input name="code" placeholder="Website connect code" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
@@ -129,6 +131,9 @@ let state = null;
 let busy = false;
 let lastStatus = "";
 
+function awsApi() {
+  return (window.AWS_API_URL || "").replace(/\/$/, "");
+}
 function worker() {
   return (window.WORKER_ORIGIN || "").replace(/\/$/, "");
 }
@@ -169,24 +174,47 @@ function showGate(title, msg, opts) {
   $("gate-hint").style.display = opts.hint ? "block" : "none";
   $("gate-hint").textContent = opts.hint || "";
   $("retry-btn").style.display = opts.retry ? "inline-block" : "none";
-  if (opts.google) renderGoogle();
+  $("signin-btn").style.display = opts.signin === false ? "none" : "block";
 }
 function showHub() {
   $("gate").style.display = "none";
   $("hub").style.display = "block";
 }
 
+async function authHeaders(jsonBody) {
+  const token = await SandcloudAuth.refreshIfNeeded();
+  const h = {};
+  if (jsonBody) h["Content-Type"] = "application/json";
+  if (token) h.Authorization = "Bearer " + token;
+  return h;
+}
+
 async function wfetch(path, body) {
   const url = worker() + path;
   const r = await fetch(url, {
     method: body === undefined && path.startsWith("/me") ? "GET" : "POST",
-    credentials: "include",
-    headers: body ? { "Content-Type": "application/json" } : {},
+    headers: await authHeaders(!!body),
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await r.json().catch(() => ({}));
-  if (data.reauth) {
-    showGate("Sign in again", "Verify with Google (required about once a week).", { google: true });
+  if (r.status === 401) {
+    showGate("Sign in", "Sign in with Google to manage your router.", { signin: true });
+    throw new Error("reauth");
+  }
+  return { r, data };
+}
+
+async function awsfetch(path, body) {
+  const base = awsApi();
+  if (!base) throw new Error("no aws api");
+  const r = await fetch(base + path, {
+    method: body === undefined && path.startsWith("/me") ? "GET" : "POST",
+    headers: await authHeaders(body !== undefined),
+    body: body !== undefined ? JSON.stringify(body || {}) : undefined,
+  });
+  const data = await r.json().catch(() => ({}));
+  if (r.status === 401) {
+    showGate("Sign in", "Sign in with Google to manage your router.", { signin: true });
     throw new Error("reauth");
   }
   return { r, data };
@@ -288,23 +316,36 @@ async function cmd(path, body) {
 async function refreshRemote() {
   if (!worker()) {
     showGate("Setup incomplete", "This site is missing its cloud connection URL.", {
-      hint: "WORKER_ORIGIN is empty in config.js.",
+      hint: "Set WORKER_ORIGIN in config.js.",
       retry: true,
+      signin: false,
+    });
+    return;
+  }
+  if (!SandcloudAuth.configured()) {
+    showGate("Setup incomplete", "Accounts are not configured yet.", {
+      hint: "Follow aws/SETUP.txt (Cognito + deploy), then fill config.js.",
+      retry: true,
+      signin: false,
     });
     return;
   }
   setErr("");
   try {
+    if (!SandcloudAuth.isSignedIn()) {
+      showGate("Sign in", "Sign in with Google to manage your router from anywhere.", { signin: true });
+      return;
+    }
     const { r, data } = await wfetch("/me/router");
     if (r.status === 401) {
-      showGate("Sign in", "Sign in with Google to manage your router. No separate account to create.", { google: true });
+      showGate("Sign in", "Sign in with Google to manage your router.", { signin: true });
       return;
     }
     if (data.status === "no_router") {
-      showGate("No router connected", "On Sandcloud Wi‑Fi (or the Pi’s local page), copy the website connect code, then enter it here.", {
+      showGate("No router connected", "On the Pi local page, copy the website connect code, then enter it here.", {
         pair: true,
-        hint: "Local page: http://10.10.10.1:8080 or http://192.168.86.24:8080",
-        google: false,
+        hint: "Local: http://10.10.10.1:8080 or http://192.168.86.24:8080",
+        signin: false,
       });
       return;
     }
@@ -312,6 +353,7 @@ async function refreshRemote() {
       showGate("Router not found", "This account’s router never checked in. Re-enter a fresh website connect code.", {
         pair: true,
         retry: true,
+        signin: false,
       });
       return;
     }
@@ -324,58 +366,63 @@ async function refreshRemote() {
     renderState(data.snapshot || {}, "online");
   } catch (e) {
     if (String(e.message) !== "reauth") {
-      showGate("Can’t reach Sandcloud", "Check your internet connection, then try again.", { retry: true, google: true });
+      showGate("Can’t reach Sandcloud", "Check your internet connection, then try again.", { retry: true, signin: true });
     }
   }
 }
 
-function renderGoogle() {
-  const id = window.GOOGLE_CLIENT_ID;
-  if (!id || !window.google || !window.google.accounts) return;
-  $("google-btn").innerHTML = "";
-  window.google.accounts.id.initialize({
-    client_id: id,
-    callback: async (resp) => {
-      setBusy(true);
-      setErr("");
-      try {
-        await wfetch("/auth/google", { id_token: resp.credential });
-        await refreshRemote();
-      } catch (e) {
-        setErr("Google sign-in failed.");
-      } finally {
-        setBusy(false);
-      }
-    },
+$("signin-btn").onclick = () => {
+  setBusy(true);
+  SandcloudAuth.loginWithGoogle().catch((e) => {
+    setBusy(false);
+    setErr(String(e.message || e));
   });
-  window.google.accounts.id.renderButton($("google-btn"), { theme: "filled_black", size: "large", width: 280 });
-}
-window.renderGoogle = renderGoogle;
+};
 
 $("pair-form").onsubmit = async (e) => {
   e.preventDefault();
   setBusy(true);
   setErr("");
   try {
-    const { r, data } = await wfetch("/pair", { code: e.target.code.value });
-    if (!r.ok) setErr(data.error || "Could not connect router");
+    const code = e.target.code.value;
+    if (awsApi()) {
+      const { r, data } = await awsfetch("/pair", { code });
+      if (!r.ok) {
+        setErr(data.error || "Could not connect router");
+        return;
+      }
+    } else {
+      const { r, data } = await wfetch("/pair", { code });
+      if (!r.ok) {
+        setErr(data.error || "Could not connect router");
+        return;
+      }
+    }
     e.target.reset();
     await refreshRemote();
   } catch (err) {
-    setErr("Could not connect router");
+    if (String(err.message) !== "reauth") setErr("Could not connect router");
   } finally {
     setBusy(false);
   }
 };
 $("unpair").onclick = async () => {
   setBusy(true);
-  try { await wfetch("/unpair", {}); await refreshRemote(); }
-  finally { setBusy(false); }
+  try {
+    if (awsApi()) await awsfetch("/unpair", {});
+    else await wfetch("/unpair", {});
+    await refreshRemote();
+  } finally {
+    setBusy(false);
+  }
 };
 $("logout").onclick = async () => {
   setBusy(true);
-  try { await wfetch("/auth/logout", {}); showGate("Sign in", "Signed out. Sign in with Google to continue.", { google: true }); }
-  finally { setBusy(false); }
+  try {
+    await SandcloudAuth.logout();
+  } finally {
+    setBusy(false);
+  }
 };
 $("retry-btn").onclick = () => refreshRemote();
 $("kill").onclick = () => cmd("/api/internet", { enabled: !(state && state.internet) });
@@ -411,10 +458,22 @@ $("allow-form").onsubmit = (e) => { e.preventDefault(); cmd("/api/list", { kind:
     return;
   }
   $("via").textContent = "Remote · " + (worker() || "not configured");
-  window.onGoogleLibraryLoad = renderGoogle;
-  setTimeout(renderGoogle, 600);
+  if (!window.COGNITO_REDIRECT_URI) {
+    const path = location.pathname.replace(/index\.html$/, "");
+    window.COGNITO_REDIRECT_URI =
+      location.origin + (path.endsWith("/") ? path : path + "/");
+  }
+  try {
+    if (location.search.includes("code=")) {
+      setBusy(true);
+      await SandcloudAuth.handleRedirect();
+      setBusy(false);
+    }
+  } catch (e) {
+    setBusy(false);
+    setErr("Sign-in failed: " + (e.message || e));
+  }
   await refreshRemote();
-  // Slow poll: each refresh is 2 KV reads; stay well under free daily caps.
   setInterval(() => {
     if (!document.hidden && $("hub").style.display === "block") refreshRemote();
   }, 45000);
