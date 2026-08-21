@@ -407,16 +407,17 @@ $("allow-form").onsubmit = (e) => { e.preventDefault(); cmd("/api/list", { kind:
         const st = await x.json();
         renderState(st, "online");
       } catch (e) {}
-    }, 4000);
+    }, 8000);
     return;
   }
   $("via").textContent = "Remote · " + (worker() || "not configured");
   window.onGoogleLibraryLoad = renderGoogle;
   setTimeout(renderGoogle, 600);
   await refreshRemote();
+  // Slow poll: each refresh is 2 KV reads; stay well under free daily caps.
   setInterval(() => {
     if (!document.hidden && $("hub").style.display === "block") refreshRemote();
-  }, 5000);
+  }, 45000);
 })();
 </script>
 </body>
