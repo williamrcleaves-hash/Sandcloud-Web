@@ -20,8 +20,11 @@
   button { appearance:none; border:1px solid var(--line); background:#111; color:var(--text); padding:.55rem .8rem; font: inherit; letter-spacing:.04em; cursor:pointer; }
   button.on { border-color: var(--ok); color: var(--ok); }
   button.off { border-color: var(--bad); color: var(--bad); }
-  button.big { width:100%; padding: 1rem; font-size: .85rem; letter-spacing:.16em; text-transform:uppercase; }
+  button.big, a.big { width:100%; padding: 1rem; font-size: .85rem; letter-spacing:.16em; text-transform:uppercase; }
+  a.big { display:block; text-align:center; text-decoration:none; box-sizing:border-box; }
   button:disabled { opacity:.4; cursor:not-allowed; }
+  details.fallback { margin-top: .9rem; }
+  details.fallback summary { cursor:pointer; color: var(--dim); font-size:.8rem; }
   input { width:100%; background:#111; border:1px solid var(--line); color:var(--text); padding:.55rem .7rem; font: inherit; }
   form { display:flex; gap:.5rem; margin-top:.6rem; }
   form input { flex:1; }
@@ -55,10 +58,13 @@
         <button type="button" id="signin-btn" class="big on">Sign in with Google</button>
       </div>
       <p class="meta" style="margin-top:1rem">Sign in with Apple — not enabled yet</p>
-      <form id="pair-form" style="display:none">
-        <input name="code" placeholder="Website connect code" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
-        <button type="submit">Connect router</button>
-      </form>
+      <details class="fallback" id="pair-details" style="display:none">
+        <summary>Enter a code instead</summary>
+        <form id="pair-form" style="display:flex">
+          <input name="code" placeholder="6-digit code" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+          <button type="submit">Connect</button>
+        </form>
+      </details>
       <p class="meta" id="gate-hint" style="margin-top:.75rem;display:none"></p>
       <p class="toolbar"><button type="button" id="retry-btn" style="display:none">Try again</button></p>
     </div>
@@ -71,9 +77,14 @@
           <div class="name" id="ssid">Sandcloud</div>
           <div class="meta" id="summary">loading…</div>
           <div id="pair-wrap" style="display:none;margin-top:.75rem">
-            <div class="meta">Website connect code</div>
-            <div class="code" id="pair-code"></div>
-            <div class="meta">Enter this on the Sandcloud website after Google sign-in. Expires in 10 minutes.</div>
+            <div class="meta">Link this router to your Google account. One tap — no code to type.</div>
+            <a id="pair-google" class="big on" style="margin-top:.75rem" href="#">Connect with Google</a>
+            <div class="meta" style="margin-top:.6rem">Opens Sandcloud, signs you in, and attaches this router. The link expires in 10 minutes.</div>
+            <details class="fallback">
+              <summary>Use a code instead</summary>
+              <div class="code" id="pair-code"></div>
+              <div class="meta">Only if the button does not work.</div>
+            </details>
           </div>
         </div>
         <div id="health"></div>
@@ -137,6 +148,13 @@ function awsApi() {
 function worker() {
   return (window.WORKER_ORIGIN || "").replace(/\/$/, "");
 }
+function pagesConnectUrl(code) {
+  const raw = String(window.COGNITO_REDIRECT_URI || "https://williamrcleaves-hash.github.io/Sandcloud-Web/");
+  const base = raw.split("?")[0];
+  const u = new URL(base);
+  u.searchParams.set("connect", String(code || "").replace(/\D/g, "").slice(0, 6));
+  return u.toString();
+}
 function sameOriginPi() {
   const h = location.hostname;
   if (h === "10.10.10.1" || h === "10.42.0.1" || h === "127.0.0.1" || h === "localhost") return true;
@@ -170,7 +188,7 @@ function showGate(title, msg, opts) {
   $("hub").style.display = "none";
   $("gate-title").textContent = title;
   $("gate-msg").textContent = msg;
-  $("pair-form").style.display = opts.pair ? "flex" : "none";
+  $("pair-details").style.display = opts.pair ? "block" : "none";
   $("gate-hint").style.display = opts.hint ? "block" : "none";
   $("gate-hint").textContent = opts.hint || "";
   $("retry-btn").style.display = opts.retry ? "inline-block" : "none";
@@ -233,6 +251,7 @@ function renderState(s, routerStatus) {
   if (mode === "lan" && s && s.pair_code) {
     pairWrap.style.display = "block";
     $("pair-code").textContent = s.pair_code;
+    $("pair-google").href = pagesConnectUrl(s.pair_code);
     $("summary").textContent = "Local control · " + (s.lan_ip || "");
   } else {
     pairWrap.style.display = "none";
@@ -336,21 +355,27 @@ async function refreshRemote() {
       showGate("Sign in", "Sign in with Google to manage your router from anywhere.", { signin: true });
       return;
     }
+    const pending = SandcloudAuth.pendingConnect();
+    if (pending) {
+      const ok = await pairRouter(pending);
+      if (ok) return;
+      SandcloudAuth.clearPendingConnect();
+    }
     const { r, data } = await wfetch("/me/router");
     if (r.status === 401) {
       showGate("Sign in", "Sign in with Google to manage your router.", { signin: true });
       return;
     }
     if (data.status === "no_router") {
-      showGate("No router connected", "On the Pi local page, copy the website connect code, then enter it here.", {
+      showGate("No router connected", "On this router’s Wi-Fi, open the page it shows and tap Connect with Google.", {
         pair: true,
-        hint: "Local: http://10.10.10.1:8080 or http://192.168.86.24:8080",
+        hint: "Usually http://10.10.10.1:8080 — no code to copy.",
         signin: false,
       });
       return;
     }
     if (data.status === "not_found") {
-      showGate("Router not found", "This account’s router never checked in. Re-enter a fresh website connect code.", {
+      showGate("Router not found", "Tap Connect with Google on the router’s local page again (the link expires after 10 minutes).", {
         pair: true,
         retry: true,
         signin: false,
@@ -381,31 +406,42 @@ $("signin-btn").onclick = () => {
 
 $("pair-form").onsubmit = async (e) => {
   e.preventDefault();
+  await pairRouter(e.target.code.value);
+  e.target.reset();
+};
+
+async function pairRouter(code) {
+  code = String(code || "").replace(/\D/g, "");
+  if (code.length !== 6) {
+    setErr("Need a 6-digit connect code.");
+    return false;
+  }
   setBusy(true);
   setErr("");
   try {
-    const code = e.target.code.value;
     if (awsApi()) {
       const { r, data } = await awsfetch("/pair", { code });
       if (!r.ok) {
         setErr(data.error || "Could not connect router");
-        return;
+        return false;
       }
     } else {
       const { r, data } = await wfetch("/pair", { code });
       if (!r.ok) {
         setErr(data.error || "Could not connect router");
-        return;
+        return false;
       }
     }
-    e.target.reset();
+    SandcloudAuth.clearPendingConnect();
     await refreshRemote();
+    return true;
   } catch (err) {
     if (String(err.message) !== "reauth") setErr("Could not connect router");
+    return false;
   } finally {
     setBusy(false);
   }
-};
+}
 $("unpair").onclick = async () => {
   setBusy(true);
   try {
@@ -463,6 +499,7 @@ $("allow-form").onsubmit = (e) => { e.preventDefault(); cmd("/api/list", { kind:
     window.COGNITO_REDIRECT_URI =
       location.origin + (path.endsWith("/") ? path : path + "/");
   }
+  SandcloudAuth.captureConnectFromUrl();
   try {
     if (location.search.includes("code=")) {
       setBusy(true);
@@ -472,6 +509,14 @@ $("allow-form").onsubmit = (e) => { e.preventDefault(); cmd("/api/list", { kind:
   } catch (e) {
     setBusy(false);
     setErr("Sign-in failed: " + (e.message || e));
+  }
+  if (SandcloudAuth.pendingConnect() && !SandcloudAuth.isSignedIn()) {
+    setBusy(true);
+    SandcloudAuth.loginWithGoogle().catch((e) => {
+      setBusy(false);
+      setErr(String(e.message || e));
+    });
+    return;
   }
   await refreshRemote();
   setInterval(() => {

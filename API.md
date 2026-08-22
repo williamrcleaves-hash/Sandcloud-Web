@@ -25,7 +25,7 @@ Never put `REGISTRY_KEY`, `HUB_PROXY_KEY`, tunnel tokens, or device secrets in t
 3. Store `id_token` / `access_token` / `refresh_token` (SPA: `localStorage` session; app: secure storage).
 4. Every user call: `Authorization: Bearer <id_token>` (preferred; includes `email` + `aud` = client id).
 
-LAN mode (Pi `10.10.10.1` / home IP): no Cognito; call Pi `/api/*` directly.
+LAN mode (Pi `10.10.10.1` / home IP): no Cognito on the Pi itself. The local page links to GitHub Pages with `?connect=<6-digit>` so pairing happens on HTTPS after Google sign-in (browsers block HTTPS sites from calling `http://10.10.10.1`).
 
 ## AWS registry (`AWS_API_URL`)
 
@@ -74,8 +74,8 @@ Useful paths: `/api/state` (LAN only GET), `/api/internet`, `/api/device`, `/api
 2. Set Worker secrets: `COGNITO_*`, `REGISTRY_URL`, `REGISTRY_KEY`, keep `TUNNEL_ORIGIN` + `HUB_PROXY_KEY`.
 3. `npx wrangler deploy` from `worker/`.
 4. Publish `web/` to Sandcloud-Web (include `auth.js`).
-5. On Pi LAN page: note **Website connect code**.
-6. Phone off home Wi‑Fi → Pages → Sign in with Google → enter code.
+5. On the router’s local page: tap **Connect with Google** (opens this site with `?connect=123456`).
+6. Google sign-in completes pairing automatically. Typing the 6-digit code is only a fallback.
 7. Confirm DynamoDB `USER#<sub>` / `DEVICE#…` binding.
 8. Toggle kill switch, block/allow, adblock; confirm public IP shows.
 9. Second Google account cannot control the same router.

@@ -4,6 +4,7 @@
  */
 (function (global) {
   const STORAGE = "sandcloud_auth_v1";
+  const CONNECT_KEY = "sandcloud_connect";
 
   function cfg() {
     return {
@@ -30,6 +31,24 @@
     const a = new Uint8Array(n);
     crypto.getRandomValues(a);
     return b64url(a);
+  }
+
+  function captureConnectFromUrl() {
+    const params = new URLSearchParams(location.search);
+    const digits = String(params.get("connect") || "")
+      .replace(/\D/g, "")
+      .slice(0, 6);
+    if (digits.length === 6) sessionStorage.setItem(CONNECT_KEY, digits);
+    return pendingConnect();
+  }
+
+  function pendingConnect() {
+    const digits = String(sessionStorage.getItem(CONNECT_KEY) || "").replace(/\D/g, "");
+    return digits.length === 6 ? digits : "";
+  }
+
+  function clearPendingConnect() {
+    sessionStorage.removeItem(CONNECT_KEY);
   }
 
   function load() {
@@ -72,6 +91,7 @@
   }
 
   async function loginWithGoogle() {
+    captureConnectFromUrl();
     const c = cfg();
     if (!c.domain || !c.clientId) throw new Error("Cognito not configured");
     const verifier = randomString(32);
@@ -92,6 +112,7 @@
   }
 
   async function handleRedirect() {
+    captureConnectFromUrl();
     const params = new URLSearchParams(location.search);
     const code = params.get("code");
     const state = params.get("state");
@@ -175,5 +196,8 @@
     handleRedirect,
     logout,
     refreshIfNeeded,
+    captureConnectFromUrl,
+    pendingConnect,
+    clearPendingConnect,
   };
 })(window);
