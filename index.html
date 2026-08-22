@@ -77,13 +77,16 @@
           <div class="name" id="ssid">Sandcloud</div>
           <div class="meta" id="summary">loading…</div>
           <div id="pair-wrap" style="display:none;margin-top:.75rem">
-            <div class="meta">Link this router to your Google account. One tap — no code to type.</div>
+            <div class="meta">Link this router to your Google account. Tap the NFC sticker or the button — no code to type.</div>
             <a id="pair-google" class="big on" style="margin-top:.75rem" href="#">Connect with Google</a>
-            <div class="meta" style="margin-top:.6rem">Opens Sandcloud, signs you in, and attaches this router. The link expires in 10 minutes.</div>
+            <div class="meta" style="margin-top:.6rem">Same link goes on the NFC tag. iPhone and Android both open Sandcloud over cellular, then sign in. The tag does not expire.</div>
+            <label class="meta" style="display:block;margin-top:.75rem">NFC tag URL (NTAG213 or larger, write as a website/URL record)</label>
+            <input id="nfc-url" readonly style="margin-top:.35rem" onclick="this.select()">
+            <div class="meta" style="margin-top:.45rem">Android can also store Sandcloud Wi-Fi on the same tag so tap joins the network. iPhone cannot join Wi-Fi from NFC — pairing still works; they join Wi-Fi separately.</div>
             <details class="fallback">
-              <summary>Use a code instead</summary>
+              <summary>Use a one-time code instead</summary>
               <div class="code" id="pair-code"></div>
-              <div class="meta">Only if the button does not work.</div>
+              <div class="meta">Only if NFC and the button do not work. Expires in 10 minutes.</div>
             </details>
           </div>
         </div>
@@ -150,9 +153,14 @@ function worker() {
 }
 function pagesConnectUrl(code) {
   const raw = String(window.COGNITO_REDIRECT_URI || "https://williamrcleaves-hash.github.io/Sandcloud-Web/");
-  const base = raw.split("?")[0];
-  const u = new URL(base);
+  const u = new URL(raw.split("?")[0]);
   u.searchParams.set("connect", String(code || "").replace(/\D/g, "").slice(0, 6));
+  return u.toString();
+}
+function pagesClaimUrl(claim) {
+  const raw = String(window.COGNITO_REDIRECT_URI || "https://williamrcleaves-hash.github.io/Sandcloud-Web/");
+  const u = new URL(raw.split("?")[0]);
+  u.searchParams.set("claim", String(claim || "").toLowerCase());
   return u.toString();
 }
 function sameOriginPi() {
@@ -248,10 +256,12 @@ function renderState(s, routerStatus) {
     (routerStatus ? statusLabel(routerStatus) : "Local");
 
   const pairWrap = $("pair-wrap");
-  if (mode === "lan" && s && s.pair_code) {
+  if (mode === "lan" && s && (s.claim_token || s.pair_code)) {
     pairWrap.style.display = "block";
-    $("pair-code").textContent = s.pair_code;
-    $("pair-google").href = pagesConnectUrl(s.pair_code);
+    $("pair-code").textContent = s.pair_code || "";
+    const href = s.claim_token ? pagesClaimUrl(s.claim_token) : pagesConnectUrl(s.pair_code);
+    $("pair-google").href = href;
+    $("nfc-url").value = href;
     $("summary").textContent = "Local control · " + (s.lan_ip || "");
   } else {
     pairWrap.style.display = "none";
@@ -355,7 +365,7 @@ async function refreshRemote() {
       showGate("Sign in", "Sign in with Google to manage your router from anywhere.", { signin: true });
       return;
     }
-    const pending = SandcloudAuth.pendingConnect();
+    const pending = SandcloudAuth.pendingClaim() || SandcloudAuth.pendingConnect();
     if (pending) {
       const ok = await pairRouter(pending);
       if (ok) return;
@@ -367,15 +377,15 @@ async function refreshRemote() {
       return;
     }
     if (data.status === "no_router") {
-      showGate("No router connected", "On this router’s Wi-Fi, open the page it shows and tap Connect with Google.", {
+      showGate("No router connected", "Tap the NFC sticker on the router, or open its Wi-Fi page and tap Connect with Google.", {
         pair: true,
-        hint: "Usually http://10.10.10.1:8080 — no code to copy.",
+        hint: "Local page is usually http://10.10.10.1:8080",
         signin: false,
       });
       return;
     }
     if (data.status === "not_found") {
-      showGate("Router not found", "Tap Connect with Google on the router’s local page again (the link expires after 10 minutes).", {
+      showGate("Router not found", "Tap the router NFC sticker again, or use Connect with Google on its local page.", {
         pair: true,
         retry: true,
         signin: false,
@@ -410,23 +420,26 @@ $("pair-form").onsubmit = async (e) => {
   e.target.reset();
 };
 
-async function pairRouter(code) {
-  code = String(code || "").replace(/\D/g, "");
-  if (code.length !== 6) {
-    setErr("Need a 6-digit connect code.");
+async function pairRouter(token) {
+  token = String(token || "").trim();
+  const claim = /^[a-fA-F0-9]{32}$/.test(token) ? token.toLowerCase() : "";
+  const code = token.replace(/\D/g, "");
+  const body = claim ? { claim } : { code };
+  if (!claim && code.length !== 6) {
+    setErr("Need a tap link or a 6-digit code.");
     return false;
   }
   setBusy(true);
   setErr("");
   try {
     if (awsApi()) {
-      const { r, data } = await awsfetch("/pair", { code });
+      const { r, data } = await awsfetch("/pair", body);
       if (!r.ok) {
         setErr(data.error || "Could not connect router");
         return false;
       }
     } else {
-      const { r, data } = await wfetch("/pair", { code });
+      const { r, data } = await wfetch("/pair", body);
       if (!r.ok) {
         setErr(data.error || "Could not connect router");
         return false;
@@ -510,7 +523,7 @@ $("allow-form").onsubmit = (e) => { e.preventDefault(); cmd("/api/list", { kind:
     setBusy(false);
     setErr("Sign-in failed: " + (e.message || e));
   }
-  if (SandcloudAuth.pendingConnect() && !SandcloudAuth.isSignedIn()) {
+  if ((SandcloudAuth.pendingClaim() || SandcloudAuth.pendingConnect()) && !SandcloudAuth.isSignedIn()) {
     setBusy(true);
     SandcloudAuth.loginWithGoogle().catch((e) => {
       setBusy(false);

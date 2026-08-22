@@ -5,6 +5,7 @@
 (function (global) {
   const STORAGE = "sandcloud_auth_v1";
   const CONNECT_KEY = "sandcloud_connect";
+  const CLAIM_KEY = "sandcloud_claim";
 
   function cfg() {
     return {
@@ -35,11 +36,20 @@
 
   function captureConnectFromUrl() {
     const params = new URLSearchParams(location.search);
+    const claim = String(params.get("claim") || "")
+      .toLowerCase()
+      .replace(/[^a-f0-9]/g, "");
+    if (claim.length === 32) sessionStorage.setItem(CLAIM_KEY, claim);
     const digits = String(params.get("connect") || "")
       .replace(/\D/g, "")
       .slice(0, 6);
     if (digits.length === 6) sessionStorage.setItem(CONNECT_KEY, digits);
-    return pendingConnect();
+    return pendingClaim() || pendingConnect();
+  }
+
+  function pendingClaim() {
+    const claim = String(sessionStorage.getItem(CLAIM_KEY) || "").toLowerCase();
+    return /^[a-f0-9]{32}$/.test(claim) ? claim : "";
   }
 
   function pendingConnect() {
@@ -49,6 +59,7 @@
 
   function clearPendingConnect() {
     sessionStorage.removeItem(CONNECT_KEY);
+    sessionStorage.removeItem(CLAIM_KEY);
   }
 
   function load() {
@@ -198,6 +209,7 @@
     refreshIfNeeded,
     captureConnectFromUrl,
     pendingConnect,
+    pendingClaim,
     clearPendingConnect,
   };
 })(window);

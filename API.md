@@ -33,9 +33,9 @@ LAN mode (Pi `10.10.10.1` / home IP): no Cognito on the Pi itself. The local pag
 |---|---|---|---|
 | GET | `/auth/whoami` | Bearer | `{ ok, sub, email }` |
 | GET | `/me/device` | Bearer | `{ ok, device_id, email }` |
-| POST | `/pair` | Bearer | `{ code: "123456" }` → `{ ok, device_id }` |
+| POST | `/pair` | Bearer | `{ claim }` (NFC / tap link) or `{ code: "123456" }` → `{ ok, device_id }` |
 | POST | `/unpair` | Bearer | clears user↔device binding |
-| POST | `/internal/pair-code` | `X-Hub-Key` | Worker only: `{ device_id, code, exp }` |
+| POST | `/internal/claim` | `X-Hub-Key` | Worker only: `{ device_id, claim }` (stable NFC token) |
 | GET | `/internal/binding?sub=` | `X-Hub-Key` | Worker only: `{ device_id }` |
 
 ## Cloudflare Worker (`WORKER_ORIGIN`)
@@ -74,9 +74,9 @@ Useful paths: `/api/state` (LAN only GET), `/api/internet`, `/api/device`, `/api
 2. Set Worker secrets: `COGNITO_*`, `REGISTRY_URL`, `REGISTRY_KEY`, keep `TUNNEL_ORIGIN` + `HUB_PROXY_KEY`.
 3. `npx wrangler deploy` from `worker/`.
 4. Publish `web/` to Sandcloud-Web (include `auth.js`).
-5. On the router’s local page: tap **Connect with Google** (opens this site with `?connect=123456`).
-6. Google sign-in completes pairing automatically. Typing the 6-digit code is only a fallback.
-7. Confirm DynamoDB `USER#<sub>` / `DEVICE#…` binding.
+5. Factory / home: write the router’s tap URL to an NTAG213 as a URL record (`?claim=`).
+6. Phone taps the sticker → Google sign-in → paired. Same URL as **Connect with Google** on the local page.
+7. Confirm DynamoDB `USER#<sub>` / `DEVICE#…` binding. `CLAIM#` stays so the tag keeps working.
 8. Toggle kill switch, block/allow, adblock; confirm public IP shows.
 9. Second Google account cannot control the same router.
 10. Wait >5 minutes with Pi powered off → UI shows offline; commands error clearly.
