@@ -158,10 +158,8 @@ function pagesConnectUrl(code) {
   return u.toString();
 }
 function pagesClaimUrl(claim) {
-  const raw = String(window.COGNITO_REDIRECT_URI || "https://williamrcleaves-hash.github.io/Sandcloud-Web/");
-  const u = new URL(raw.split("?")[0]);
-  u.searchParams.set("claim", String(claim || "").toLowerCase());
-  return u.toString();
+  const token = String(claim || "").toLowerCase();
+  return "https://hub-api.betternights.app/join?claim=" + encodeURIComponent(token);
 }
 function sameOriginPi() {
   const h = location.hostname;
