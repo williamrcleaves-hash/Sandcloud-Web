@@ -22,10 +22,11 @@ Never put `REGISTRY_KEY`, `HUB_PROXY_KEY`, tunnel tokens, or device secrets in t
 
 1. Cognito Hosted UI → Google → authorization code + **PKCE**.
 2. Exchange code at `{COGNITO_DOMAIN}/oauth2/token`.
-3. Store `id_token` / `access_token` / `refresh_token` (SPA: `localStorage` session; app: secure storage).
+3. Store `id_token` / `access_token` / `refresh_token` (SPA: `localStorage` session; app: iOS Keychain via Expo SecureStore).
 4. Every user call: `Authorization: Bearer <id_token>` (preferred; includes `email` + `aud` = client id).
+5. Providers: Google and (once deployed) Sign in with Apple via Hosted UI + PKCE; email/password via Cognito SRP. Same user pool as the website.
 
-LAN mode (Pi `10.10.10.1` / home IP): no Cognito on the Pi itself. The local page links to GitHub Pages with `?connect=<6-digit>` so pairing happens on HTTPS after Google sign-in (browsers block HTTPS sites from calling `http://10.10.10.1`).
+LAN mode (Pi `10.10.10.1` / home IP): no Cognito on the Pi itself. The local page links to GitHub Pages with `?connect=<6-digit>` so pairing happens on HTTPS after sign-in (browsers block HTTPS sites from calling `http://10.10.10.1`).
 
 ## AWS registry (`AWS_API_URL`)
 
@@ -56,7 +57,7 @@ User:
 | POST | `/pair` | Bearer | Proxies to AWS `/pair` if `REGISTRY_URL` set |
 | POST | `/unpair` | Bearer | Proxies to AWS `/unpair` |
 
-`status` offline when last heartbeat older than **300s**. Heartbeat KV writes throttled (~**120s**).
+`status` offline when last persisted heartbeat is older than **25 minutes**. KV writes at most every **15 minutes** (Cloudflare free-tier write cap). Pi POSTs every **5 minutes**; unchanged heartbeats do not write KV.
 
 ## Pi command paths (via `/cmd`)
 
@@ -66,7 +67,9 @@ User:
 { "path": "/api/internet", "body": { "enabled": false } }
 ```
 
-Useful paths: `/api/state` (LAN only GET), `/api/internet`, `/api/device`, `/api/list`, `/api/adblock`, `/api/vpn`, `/api/wan-renew`.
+Useful paths: `/api/state` (LAN only GET), `/api/internet`, `/api/device`, `/api/list`, `/api/adblock`, `/api/redirect-shield`, `/api/vpn`, `/api/wan-renew`.
+
+Redirect shield (default on) adds malware / phishing / scam / popup-host DNS lists plus rules that drop Freenom TLDs and long-random junk-TLD names — the hop after a sketchy click. Needs ad blocking on. Snapshot fields: `redirect_shield`, `shield_blocked`, `shield_queries`, `shield_recent`.
 
 ## E2E remote checklist (cellular)
 
@@ -74,13 +77,13 @@ Useful paths: `/api/state` (LAN only GET), `/api/internet`, `/api/device`, `/api
 2. Set Worker secrets: `COGNITO_*`, `REGISTRY_URL`, `REGISTRY_KEY`, keep `TUNNEL_ORIGIN` + `HUB_PROXY_KEY`.
 3. `npx wrangler deploy` from `worker/`.
 4. Publish `web/` to Sandcloud-Web (include `auth.js`).
-5. Factory / home: write the router’s tap URL to an NTAG213 as a URL record (`?claim=`).
-6. Phone taps the sticker → Google sign-in → paired. Same URL as **Connect with Google** on the local page.
+5. Factory / home: write `https://hub-api.betternights.app/join?claim=` to an NTAG215 as a URL record.
+6. iPhone App Clip (see `ios/`) shows Join Wi-Fi, then Google pairing. Safari without the clip redirects to Pages `?claim=`.
 7. Confirm DynamoDB `USER#<sub>` / `DEVICE#…` binding. `CLAIM#` stays so the tag keeps working.
 8. Toggle kill switch, block/allow, adblock; confirm public IP shows.
 9. Second Google account cannot control the same router.
 10. Wait >5 minutes with Pi powered off → UI shows offline; commands error clearly.
 
-## Capacitor later
+## Expo app (`mobile/`)
 
-Wrap `web/`; set `COGNITO_REDIRECT_URI` to `sandcloud://callback` (add to Cognito app client); reuse `SandcloudAuth` + this API unchanged.
+Native iOS (TestFlight) + Android codebase. OAuth callback `sandcloud://auth` is already on the Cognito app client. Universal Links: `https://hub-api.betternights.app/join?claim=`. See `mobile/README.txt`.

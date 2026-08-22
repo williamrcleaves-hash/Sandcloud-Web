@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sandcloud</title>
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://sandcloud-hub.betternights.workers.dev https://hub-api.betternights.app https://3ajnfd6z60.execute-api.us-west-2.amazonaws.com https://sandcloud-026268603082.auth.us-west-2.amazoncognito.com https://cognito-idp.us-west-2.amazonaws.com; form-action 'self' https://sandcloud-026268603082.auth.us-west-2.amazoncognito.com; base-uri 'self'; object-src 'none'; frame-ancestors 'none';">
 <script src="config.js"></script>
 <script src="auth.js"></script>
 <style>
@@ -53,11 +55,17 @@
   <div id="gate">
     <div class="card">
       <div class="name" id="gate-title">Sign in</div>
-      <div class="meta" id="gate-msg">Sign in with Google to manage your router from anywhere. Your account is stored securely.</div>
+      <div class="meta" id="gate-msg">Sign in to manage your router from anywhere. Google, Apple, or email — same account as the app.</div>
       <div id="google-btn" style="margin-top:1rem">
         <button type="button" id="signin-btn" class="big on">Sign in with Google</button>
       </div>
-      <p class="meta" style="margin-top:1rem">Sign in with Apple — not enabled yet</p>
+      <p class="toolbar" style="margin-top:.75rem">
+        <button type="button" id="apple-btn" class="big">Sign in with Apple</button>
+      </p>
+      <p class="toolbar">
+        <button type="button" id="email-btn" class="big">Sign in with email</button>
+      </p>
+      <p class="meta" style="margin-top:1rem">Hide My Email from Apple is a different account than Google or your real address. Use the same method next time. Email passwords need 12+ characters with upper, lower, and a number.</p>
       <details class="fallback" id="pair-details" style="display:none">
         <summary>Enter a code instead</summary>
         <form id="pair-form" style="display:flex">
@@ -77,8 +85,8 @@
           <div class="name" id="ssid">Sandcloud</div>
           <div class="meta" id="summary">loading…</div>
           <div id="pair-wrap" style="display:none;margin-top:.75rem">
-            <div class="meta">Link this router to your Google account. Tap the NFC sticker or the button — no code to type.</div>
-            <a id="pair-google" class="big on" style="margin-top:.75rem" href="#">Connect with Google</a>
+            <div class="meta">Link this router to your Sandcloud account. Tap the NFC sticker or the button — no code to type.</div>
+            <a id="pair-google" class="big on" style="margin-top:.75rem" href="#">Connect this router</a>
             <div class="meta" style="margin-top:.6rem">Same link goes on the NFC tag. iPhone and Android both open Sandcloud over cellular, then sign in. The tag does not expire.</div>
             <label class="meta" style="display:block;margin-top:.75rem">NFC tag URL (NTAG213 or larger, write as a website/URL record)</label>
             <input id="nfc-url" readonly style="margin-top:.35rem" onclick="this.select()">
@@ -117,6 +125,18 @@
         <div class="meta" id="ag-meta">AdGuard</div>
       </div>
       <button type="button" id="adblock">On</button>
+    </div>
+
+    <div class="card row">
+      <div>
+        <div class="name">Redirect shield</div>
+        <div class="meta" id="shield-meta">Stops sketchy pages from bouncing you to malware, phishing, and popup hops.</div>
+      </div>
+      <button type="button" id="redirect-shield">On</button>
+    </div>
+    <div class="card" id="shield-recent-card" style="display:none">
+      <div class="meta">Recently blocked</div>
+      <ul id="shield-recent"></ul>
     </div>
 
     <h2>Devices</h2>
@@ -199,6 +219,8 @@ function showGate(title, msg, opts) {
   $("gate-hint").textContent = opts.hint || "";
   $("retry-btn").style.display = opts.retry ? "inline-block" : "none";
   $("signin-btn").style.display = opts.signin === false ? "none" : "block";
+  $("apple-btn").style.display = opts.signin === false ? "none" : "block";
+  $("email-btn").style.display = opts.signin === false ? "none" : "block";
 }
 function showHub() {
   $("gate").style.display = "none";
@@ -222,7 +244,7 @@ async function wfetch(path, body) {
   });
   const data = await r.json().catch(() => ({}));
   if (r.status === 401) {
-    showGate("Sign in", "Sign in with Google to manage your router.", { signin: true });
+    showGate("Sign in", "Sign in to manage your router.", { signin: true });
     throw new Error("reauth");
   }
   return { r, data };
@@ -238,7 +260,7 @@ async function awsfetch(path, body) {
   });
   const data = await r.json().catch(() => ({}));
   if (r.status === 401) {
-    showGate("Sign in", "Sign in with Google to manage your router.", { signin: true });
+    showGate("Sign in", "Sign in to manage your router.", { signin: true });
     throw new Error("reauth");
   }
   return { r, data };
@@ -288,6 +310,27 @@ function renderState(s, routerStatus) {
   $("adblock").textContent = s.adblock ? "On" : "Off";
   $("adblock").className = s.adblock ? "on" : "off";
   $("adblock").disabled = (!online && mode === "remote") || busy;
+  const shieldOn = !!(s.adblock && s.redirect_shield);
+  $("redirect-shield").textContent = shieldOn ? "On" : "Off";
+  $("redirect-shield").className = shieldOn ? "on" : "off";
+  $("redirect-shield").disabled = (!online && mode === "remote") || busy || !s.adblock;
+  const blockedN = Number(s.shield_blocked || 0);
+  const queryN = Number(s.shield_queries || 0);
+  $("shield-meta").textContent = !s.adblock
+    ? "Turn ad blocking on first. The shield uses the same DNS filter."
+    : shieldOn
+      ? (queryN
+        ? ("Blocking bounce hosts, scams, and junk landing pads · " + blockedN + " of " + queryN + " lookups stopped")
+        : "Blocking bounce hosts, scams, and junk landing pads")
+      : "Off · sketchy click-redirects are not filtered";
+  const recent = s.shield_recent || [];
+  if (shieldOn && recent.length) {
+    $("shield-recent-card").style.display = "block";
+    $("shield-recent").innerHTML = recent.map((d) => "<li><span>" + d + "</span></li>").join("");
+  } else {
+    $("shield-recent-card").style.display = "none";
+    $("shield-recent").innerHTML = "";
+  }
 
   const box = $("devices");
   const devs = s.devices || [];
@@ -360,7 +403,7 @@ async function refreshRemote() {
   setErr("");
   try {
     if (!SandcloudAuth.isSignedIn()) {
-      showGate("Sign in", "Sign in with Google to manage your router from anywhere.", { signin: true });
+      showGate("Sign in", "Sign in to manage your router from anywhere.", { signin: true });
       return;
     }
     const pending = SandcloudAuth.pendingClaim() || SandcloudAuth.pendingConnect();
@@ -371,11 +414,11 @@ async function refreshRemote() {
     }
     const { r, data } = await wfetch("/me/router");
     if (r.status === 401) {
-      showGate("Sign in", "Sign in with Google to manage your router.", { signin: true });
+      showGate("Sign in", "Sign in to manage your router.", { signin: true });
       return;
     }
     if (data.status === "no_router") {
-      showGate("No router connected", "Tap the NFC sticker on the router, or open its Wi-Fi page and tap Connect with Google.", {
+      showGate("No router connected", "Tap the NFC sticker on the router, or open its Wi-Fi page and tap Connect this router.", {
         pair: true,
         hint: "Local page is usually http://10.10.10.1:8080",
         signin: false,
@@ -383,7 +426,7 @@ async function refreshRemote() {
       return;
     }
     if (data.status === "not_found") {
-      showGate("Router not found", "Tap the router NFC sticker again, or use Connect with Google on its local page.", {
+      showGate("Router not found", "Tap the router NFC sticker again, or use Connect this router on its local page.", {
         pair: true,
         retry: true,
         signin: false,
@@ -407,6 +450,20 @@ async function refreshRemote() {
 $("signin-btn").onclick = () => {
   setBusy(true);
   SandcloudAuth.loginWithGoogle().catch((e) => {
+    setBusy(false);
+    setErr(String(e.message || e));
+  });
+};
+$("apple-btn").onclick = () => {
+  setBusy(true);
+  SandcloudAuth.loginWithApple().catch((e) => {
+    setBusy(false);
+    setErr(String(e.message || e));
+  });
+};
+$("email-btn").onclick = () => {
+  setBusy(true);
+  SandcloudAuth.loginWithEmail().catch((e) => {
     setBusy(false);
     setErr(String(e.message || e));
   });
@@ -474,6 +531,7 @@ $("logout").onclick = async () => {
 $("retry-btn").onclick = () => refreshRemote();
 $("kill").onclick = () => cmd("/api/internet", { enabled: !(state && state.internet) });
 $("adblock").onclick = () => cmd("/api/adblock", { enabled: !(state && state.adblock) });
+$("redirect-shield").onclick = () => cmd("/api/redirect-shield", { enabled: !(state && state.redirect_shield) });
 $("vpn").onclick = () => cmd("/api/vpn", { enabled: !(state && state.vpn && state.vpn.up) });
 $("wan-renew").onclick = () => {
   if (!confirm("Renew the Pi’s home ethernet lease? Your public IP may stay the same.")) return;
@@ -522,17 +580,16 @@ $("allow-form").onsubmit = (e) => { e.preventDefault(); cmd("/api/list", { kind:
     setErr("Sign-in failed: " + (e.message || e));
   }
   if ((SandcloudAuth.pendingClaim() || SandcloudAuth.pendingConnect()) && !SandcloudAuth.isSignedIn()) {
-    setBusy(true);
-    SandcloudAuth.loginWithGoogle().catch((e) => {
-      setBusy(false);
-      setErr(String(e.message || e));
+    showGate("Sign in to pair", "This tap is from your router. Sign in with Google, Apple, or email to own it.", {
+      signin: true,
+      hint: "Use the same method every time. Apple Hide My Email is a different account.",
     });
     return;
   }
   await refreshRemote();
   setInterval(() => {
     if (!document.hidden && $("hub").style.display === "block") refreshRemote();
-  }, 45000);
+  }, 120000);
 })();
 </script>
 </body>
