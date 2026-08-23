@@ -109,6 +109,7 @@
     const challenge = b64url(await sha256(verifier));
     const state = randomString(16);
     sessionStorage.setItem("sandcloud_pkce", JSON.stringify({ verifier, state }));
+    localStorage.setItem("sandcloud_pkce", JSON.stringify({ verifier, state }));
     const q = new URLSearchParams({
       client_id: c.clientId,
       response_type: "code",
@@ -140,8 +141,9 @@
     const code = params.get("code");
     const state = params.get("state");
     if (!code) return false;
-    const raw = sessionStorage.getItem("sandcloud_pkce");
+    const raw = sessionStorage.getItem("sandcloud_pkce") || localStorage.getItem("sandcloud_pkce");
     sessionStorage.removeItem("sandcloud_pkce");
+    localStorage.removeItem("sandcloud_pkce");
     const pkce = raw ? JSON.parse(raw) : null;
     if (!pkce || pkce.state !== state) throw new Error("bad oauth state");
     const c = cfg();
@@ -165,7 +167,8 @@
       refresh_token: data.refresh_token,
       expires_at: Date.now() + (Number(data.expires_in) || 3600) * 1000,
     });
-    history.replaceState({}, "", location.pathname);
+    const dest = new URL(c.redirect, location.origin);
+    history.replaceState({}, "", dest.pathname + dest.search);
     return true;
   }
 
@@ -211,10 +214,24 @@
     return bearer();
   }
 
+  function email() {
+    const token = load()?.id_token || "";
+    const part = token.split(".")[1];
+    if (!part) return "";
+    try {
+      const json = atob(part.replace(/-/g, "+").replace(/_/g, "/"));
+      const payload = JSON.parse(json);
+      return String(payload.email || "");
+    } catch {
+      return "";
+    }
+  }
+
   global.SandcloudAuth = {
     configured,
     isSignedIn,
     bearer,
+    email,
     loginWithGoogle,
     loginWithApple,
     loginWithEmail,

@@ -57,14 +57,20 @@
       <div class="name" id="gate-title">Sign in</div>
       <div class="meta" id="gate-msg">Sign in to manage your router from anywhere. Google, Apple, or email — same account as the app.</div>
       <div id="google-btn" style="margin-top:1rem">
+        <div id="signin-stack">
         <button type="button" id="signin-btn" class="big on">Sign in with Google</button>
-      </div>
       <p class="toolbar" style="margin-top:.75rem">
         <button type="button" id="apple-btn" class="big">Sign in with Apple</button>
       </p>
       <p class="toolbar">
         <button type="button" id="email-btn" class="big">Sign in with email</button>
       </p>
+        </div>
+        <div id="signed-in-bar" style="display:none;margin-top:1rem">
+          <div class="meta" id="signed-in-email"></div>
+          <p class="toolbar"><button type="button" id="gate-logout">Sign out</button></p>
+        </div>
+      </div>
       <p class="meta" style="margin-top:1rem">Hide My Email from Apple is a different account than Google or your real address. Use the same method next time. Email passwords need 12+ characters with upper, lower, and a number.</p>
       <details class="fallback" id="pair-details" style="display:none">
         <summary>Enter a code instead</summary>
@@ -210,6 +216,8 @@ function setErr(msg) {
 }
 function showGate(title, msg, opts) {
   opts = opts || {};
+  const authed = SandcloudAuth.isSignedIn();
+  const wantSignin = opts.signin !== false && !authed;
   $("gate").style.display = "block";
   $("hub").style.display = "none";
   $("gate-title").textContent = title;
@@ -218,9 +226,11 @@ function showGate(title, msg, opts) {
   $("gate-hint").style.display = opts.hint ? "block" : "none";
   $("gate-hint").textContent = opts.hint || "";
   $("retry-btn").style.display = opts.retry ? "inline-block" : "none";
-  $("signin-btn").style.display = opts.signin === false ? "none" : "block";
-  $("apple-btn").style.display = opts.signin === false ? "none" : "block";
-  $("email-btn").style.display = opts.signin === false ? "none" : "block";
+  $("signin-stack").style.display = wantSignin ? "block" : "none";
+  $("signed-in-bar").style.display = authed ? "block" : "none";
+  $("signed-in-email").textContent = authed
+    ? "Signed in as " + (SandcloudAuth.email() || "your account")
+    : "";
 }
 function showHub() {
   $("gate").style.display = "none";
@@ -243,10 +253,6 @@ async function wfetch(path, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await r.json().catch(() => ({}));
-  if (r.status === 401) {
-    showGate("Sign in", "Sign in to manage your router.", { signin: true });
-    throw new Error("reauth");
-  }
   return { r, data };
 }
 
@@ -259,10 +265,6 @@ async function awsfetch(path, body) {
     body: body !== undefined ? JSON.stringify(body || {}) : undefined,
   });
   const data = await r.json().catch(() => ({}));
-  if (r.status === 401) {
-    showGate("Sign in", "Sign in to manage your router.", { signin: true });
-    throw new Error("reauth");
-  }
   return { r, data };
 }
 
@@ -414,13 +416,16 @@ async function refreshRemote() {
     }
     const { r, data } = await wfetch("/me/router");
     if (r.status === 401) {
-      showGate("Sign in", "Sign in to manage your router.", { signin: true });
+      showGate("Signed in, but the live API rejected this session", "The Worker did not accept the login token. Re-set COGNITO_CLIENT_ID on the Worker (do not paste a whole block of commands).", {
+        retry: true,
+        signin: false,
+      });
       return;
     }
     if (data.status === "no_router") {
-      showGate("No router connected", "Tap the NFC sticker on the router, or open its Wi-Fi page and tap Connect this router.", {
+      showGate("Signed in · no router yet", "This account is not linked to a router. Tap the NFC sticker, or enter the 6-digit code from the router’s Wi-Fi page.", {
         pair: true,
-        hint: "Local page is usually http://10.10.10.1:8080",
+        hint: "Local page is usually http://10.10.10.1:8080 — then tap Connect this router.",
         signin: false,
       });
       return;
@@ -528,6 +533,7 @@ $("logout").onclick = async () => {
     setBusy(false);
   }
 };
+$("gate-logout").onclick = () => SandcloudAuth.logout();
 $("retry-btn").onclick = () => refreshRemote();
 $("kill").onclick = () => cmd("/api/internet", { enabled: !(state && state.internet) });
 $("adblock").onclick = () => cmd("/api/adblock", { enabled: !(state && state.adblock) });
