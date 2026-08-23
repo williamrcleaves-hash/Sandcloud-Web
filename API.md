@@ -67,7 +67,9 @@ User:
 { "path": "/api/internet", "body": { "enabled": false } }
 ```
 
-Useful paths: `/api/state` (LAN only GET), `/api/internet`, `/api/device`, `/api/list`, `/api/adblock`, `/api/redirect-shield`, `/api/vpn`, `/api/wan-renew`.
+Useful paths: `/api/state` (LAN only GET), `/api/internet`, `/api/device`, `/api/list`, `/api/adblock`, `/api/redirect-shield`, `/api/vpn`, `/api/wan-renew`, `/api/wifi`.
+
+`POST /api/wifi` body: `{ "ssid": "MyHome", "passphrase": "newpassword" }`. `passphrase` optional to keep the current password. Factory default is `Sandcloud` / `hubpass42` from `config.env`. Snapshot returns the live `ssid` only — never the password. Changing Wi-Fi restarts the AP; clients must rejoin.
 
 Redirect shield (default on) adds malware / phishing / scam / popup-host DNS lists plus rules that drop Freenom TLDs and long-random junk-TLD names — the hop after a sketchy click. Needs ad blocking on. Snapshot fields: `redirect_shield`, `shield_blocked`, `shield_queries`, `shield_recent`.
 

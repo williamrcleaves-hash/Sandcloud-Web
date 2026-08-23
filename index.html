@@ -30,6 +30,8 @@
   input { width:100%; background:#111; border:1px solid var(--line); color:var(--text); padding:.55rem .7rem; font: inherit; }
   form { display:flex; gap:.5rem; margin-top:.6rem; }
   form input { flex:1; }
+  form.stack { flex-direction: column; align-items: stretch; }
+  form.stack button { align-self: flex-start; }
   ul { list-style:none; padding:0; margin:.5rem 0 0; }
   li { display:flex; justify-content:space-between; align-items:center; padding:.4rem 0; border-top:1px solid var(--line); font-size:.9rem; }
   .dot { width:.55rem; height:.55rem; border-radius:50%; display:inline-block; margin-right:.4rem; background:var(--dim); vertical-align:middle; }
@@ -110,6 +112,19 @@
         <button type="button" id="logout">Sign out</button>
         <button type="button" id="unpair">Disconnect router</button>
       </p>
+    </div>
+
+    <h2>Wi-Fi name and password</h2>
+    <div class="card">
+      <div class="name" id="wifi-heading">Sandcloud</div>
+      <div class="meta" id="wifi-current">Factory default is Sandcloud / hubpass42 until you change it. Printed on the box.</div>
+      <div class="meta">Leave the password blank to keep the current one. Saving kicks every phone off until they join the new name. Use cellular if you are on this Wi-Fi now.</div>
+      <form id="wifi-form" class="stack">
+        <input id="wifi-ssid" maxlength="32" placeholder="Network name" autocomplete="off">
+        <input id="wifi-pass" type="password" maxlength="63" placeholder="New password (8+ characters, or blank to keep)" autocomplete="new-password">
+        <input id="wifi-pass2" type="password" maxlength="63" placeholder="Confirm new password" autocomplete="new-password">
+        <button type="submit" id="wifi-save">Save Wi-Fi</button>
+      </form>
     </div>
 
     <div class="card">
@@ -273,6 +288,19 @@ function renderState(s, routerStatus) {
   lastStatus = routerStatus || "";
   $("ssid").textContent = (s && s.ssid) || "Sandcloud";
   const online = routerStatus ? routerStatus === "online" : true;
+  const wifiName = (s && s.ssid) || "Sandcloud";
+  $("wifi-heading").textContent = wifiName;
+  $("wifi-current").textContent = wifiName === "Sandcloud"
+    ? "Factory default is Sandcloud / hubpass42 until you change it. Join that first, then pick your own name here."
+    : "Current name: " + wifiName + ". Password is not shown. Leave password blank to keep it.";
+  const wifiTyping = document.activeElement === $("wifi-ssid")
+    || document.activeElement === $("wifi-pass")
+    || document.activeElement === $("wifi-pass2");
+  if (!wifiTyping) $("wifi-ssid").value = wifiName;
+  $("wifi-save").disabled = (!online && mode === "remote") || busy;
+  $("wifi-ssid").disabled = (!online && mode === "remote") || busy;
+  $("wifi-pass").disabled = (!online && mode === "remote") || busy;
+  $("wifi-pass2").disabled = (!online && mode === "remote") || busy;
   $("summary").textContent = routerStatus ? statusLabel(routerStatus) : ((s && s.lan_ip) || "");
   $("health").innerHTML = '<span class="dot ' + (online ? "ok" : (routerStatus === "offline" ? "warn" : "bad")) + '"></span>' +
     (routerStatus ? statusLabel(routerStatus) : "Local");
@@ -372,12 +400,14 @@ async function cmd(path, body) {
       const s = await r.json();
       if (!r.ok && s.error) setErr(String(s.error));
       renderState(s, "online");
+      if (s.rejoin) $("wifi-current").textContent = "Saved. Rejoin “" + (s.ssid || "") + "” on your phones.";
       return;
     }
     const { r, data } = await wfetch("/cmd", { path, body });
     if (!r.ok && data.error) setErr(String(data.error));
     if (data && data.ssid) renderState(data, "online");
     else await refreshRemote();
+    if (data && data.rejoin) $("wifi-current").textContent = "Saved. Rejoin “" + (data.ssid || "") + "” on your phones.";
   } catch (e) {
     if (String(e.message) !== "reauth") setErr("Request failed. Try again.");
   } finally {
@@ -542,6 +572,39 @@ $("vpn").onclick = () => cmd("/api/vpn", { enabled: !(state && state.vpn && stat
 $("wan-renew").onclick = () => {
   if (!confirm("Renew the Pi’s home ethernet lease? Your public IP may stay the same.")) return;
   cmd("/api/wan-renew", {});
+};
+$("wifi-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const ssid = $("wifi-ssid").value.trim();
+  const pass = $("wifi-pass").value;
+  const pass2 = $("wifi-pass2").value;
+  if (!ssid) {
+    setErr("Enter a Wi-Fi name.");
+    return;
+  }
+  if (ssid.length > 32) {
+    setErr("Wi-Fi name must be 32 characters or fewer.");
+    return;
+  }
+  if (pass || pass2) {
+    if (pass !== pass2) {
+      setErr("Passwords do not match.");
+      return;
+    }
+    if (pass.length < 8 || pass.length > 63) {
+      setErr("Password must be 8–63 characters.");
+      return;
+    }
+  }
+  const msg = pass
+    ? "Phones on this network will disconnect and must join “" + ssid + "” with the new password."
+    : "Phones on this network will disconnect and must join “" + ssid + "”.";
+  if (!confirm(msg + " Continue?")) return;
+  const body = { ssid };
+  if (pass) body.passphrase = pass;
+  await cmd("/api/wifi", body);
+  $("wifi-pass").value = "";
+  $("wifi-pass2").value = "";
 };
 $("block-form").onsubmit = (e) => { e.preventDefault(); cmd("/api/list", { kind: "blocklist", domain: e.target.domain.value }); e.target.reset(); };
 $("allow-form").onsubmit = (e) => { e.preventDefault(); cmd("/api/list", { kind: "allowlist", domain: e.target.domain.value }); e.target.reset(); };
