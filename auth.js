@@ -101,7 +101,7 @@
     return Boolean(bearer());
   }
 
-  async function loginWithGoogle() {
+  async function loginWithProvider(identityProvider) {
     captureConnectFromUrl();
     const c = cfg();
     if (!c.domain || !c.clientId) throw new Error("Cognito not configured");
@@ -117,9 +117,21 @@
       state,
       code_challenge_method: "S256",
       code_challenge: challenge,
-      identity_provider: "Google",
+      identity_provider: identityProvider,
     });
     location.href = `${c.domain}/oauth2/authorize?${q}`;
+  }
+
+  async function loginWithGoogle() {
+    return loginWithProvider("Google");
+  }
+
+  async function loginWithApple() {
+    return loginWithProvider("SignInWithApple");
+  }
+
+  async function loginWithEmail() {
+    return loginWithProvider("COGNITO");
   }
 
   async function handleRedirect() {
@@ -204,6 +216,8 @@
     isSignedIn,
     bearer,
     loginWithGoogle,
+    loginWithApple,
+    loginWithEmail,
     handleRedirect,
     logout,
     refreshIfNeeded,
