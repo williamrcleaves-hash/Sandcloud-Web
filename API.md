@@ -67,11 +67,17 @@ User:
 { "path": "/api/internet", "body": { "enabled": false } }
 ```
 
-Useful paths: `/api/state` (LAN only GET), `/api/internet`, `/api/device`, `/api/list`, `/api/adblock`, `/api/redirect-shield`, `/api/vpn`, `/api/wan-renew`, `/api/wifi`.
+Useful paths: `/api/state` (LAN only GET), `/api/internet`, `/api/device`, `/api/list`, `/api/adblock`, `/api/redirect-shield`, `/api/vpn`, `/api/wan-renew`, `/api/wifi`, `/api/guest`, `/api/iot`.
 
 `POST /api/wifi` body: `{ "ssid": "MyHome", "passphrase": "newpassword" }`. `passphrase` optional to keep the current password. Factory default is `Sandcloud` / `hubpass42` from `config.env`. Snapshot returns the live `ssid` only — never the password. Changing Wi-Fi restarts the AP; clients must rejoin.
 
+`POST /api/guest` and `POST /api/iot` (USB AWUS `wlan1`): `{ "enabled"?: bool, "ssid"?: string, "passphrase"?: string }`. Guest = `10.10.20.0/24` (internet only, isolated). IoT = `10.10.30.0/24` (isolated from main + Guest). Snapshot fields: `guest` / `iot` as `{ adapter, enabled, up, ssid, clients, note? }`. Devices include `type`, `vendor`, `network` (`main|guest|iot`) and a friendly `name`.
+
+**Hardware note:** the AWUS MT7612U driver only supports **one AP SSID at a time**. When both Guest and IoT are enabled, Guest is on-air and `iot.note` explains how to switch. Turn Guest off to put IoT on air (and vice versa).
+
 Redirect shield (default on) adds malware / phishing / scam / popup-host DNS lists plus rules that drop Freenom TLDs and long-random junk-TLD names — the hop after a sketchy click. Needs ad blocking on. Snapshot fields: `redirect_shield`, `shield_blocked`, `shield_queries`, `shield_recent`.
+
+Offline: when Worker status is not `online`, remote `/cmd` returns 503 and the app locks toggles. The Pi keeps enforcing the last adblock/lockdown state locally.
 
 ## E2E remote checklist (cellular)
 

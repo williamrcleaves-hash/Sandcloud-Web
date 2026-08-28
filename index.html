@@ -9,172 +9,388 @@
 <script src="config.js"></script>
 <script src="auth.js"></script>
 <style>
-  :root { --bg:#0c0c0c; --card:#161616; --line:#2a2a2a; --text:#eee; --dim:#8a8a8a; --ok:#c4e1c4; --bad:#e6b0aa; }
+  :root {
+    --bg: #000;
+    --text: #fff;
+    --dim: #8a8a8a;
+    --muted: #5c5c5c;
+    --line: rgba(255,255,255,.22);
+    --toggle: #34C759;
+    --off: #2a2a2a;
+  }
   * { box-sizing: border-box; }
-  body { margin:0; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; background:var(--bg); color:var(--text); }
-  main { max-width: 42rem; margin: 0 auto; padding: 1.25rem 1rem 4rem; }
-  h1 { font-size: .72rem; letter-spacing: .22em; text-transform: uppercase; font-weight: 600; margin: 0 0 1.5rem; color: var(--dim); }
-  h2 { font-size: .72rem; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; color: var(--dim); margin: 1.75rem 0 .6rem; }
-  .card { background: var(--card); border: 1px solid var(--line); padding: 1rem; margin: 0 0 .75rem; }
-  .row { display:flex; justify-content:space-between; align-items:center; gap: 1rem; }
-  .name { font-size: 1.05rem; }
-  .meta { font-size: .8rem; color: var(--dim); margin-top: .2rem; word-break: break-all; }
-  button { appearance:none; border:1px solid var(--line); background:#111; color:var(--text); padding:.55rem .8rem; font: inherit; letter-spacing:.04em; cursor:pointer; }
-  button.on { border-color: var(--ok); color: var(--ok); }
-  button.off { border-color: var(--bad); color: var(--bad); }
-  button.big, a.big { width:100%; padding: 1rem; font-size: .85rem; letter-spacing:.16em; text-transform:uppercase; }
-  a.big { display:block; text-align:center; text-decoration:none; box-sizing:border-box; }
-  button:disabled { opacity:.4; cursor:not-allowed; }
-  details.fallback { margin-top: .9rem; }
-  details.fallback summary { cursor:pointer; color: var(--dim); font-size:.8rem; }
-  input { width:100%; background:#111; border:1px solid var(--line); color:var(--text); padding:.55rem .7rem; font: inherit; }
-  form { display:flex; gap:.5rem; margin-top:.6rem; }
-  form input { flex:1; }
-  form.stack { flex-direction: column; align-items: stretch; }
-  form.stack button { align-self: flex-start; }
-  ul { list-style:none; padding:0; margin:.5rem 0 0; }
-  li { display:flex; justify-content:space-between; align-items:center; padding:.4rem 0; border-top:1px solid var(--line); font-size:.9rem; }
-  .dot { width:.55rem; height:.55rem; border-radius:50%; display:inline-block; margin-right:.4rem; background:var(--dim); vertical-align:middle; }
-  .dot.ok { background:var(--ok); }
-  .dot.bad { background:var(--bad); }
-  .dot.warn { background:#d4c27a; }
-  p.warn { color:var(--bad); font-size:.85rem; }
-  .code { font-size: 2rem; letter-spacing: .35em; font-weight: 600; }
-  #hub { display:none; }
-  #gate { display:block; }
-  #busy { display:none; color: var(--dim); font-size:.8rem; margin:.5rem 0; }
-  a { color: var(--ok); }
-  .toolbar { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.75rem; }
+  html, body { min-height: 100%; }
+  body {
+    margin: 0;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  main {
+    max-width: 28rem;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding: 1.5rem 1.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+  }
+  h1, h2 { font-size: 1.625rem; font-weight: 600; margin: 0 0 1.5rem; }
+  .meta { font-size: .94rem; line-height: 1.4; color: var(--dim); margin: 0 0 1rem; word-break: break-all; }
+  .warn { color: #d0d0d0; font-size: .94rem; margin: 0 0 1rem; }
+  .wordmark {
+    font-size: .7rem;
+    color: var(--muted);
+    letter-spacing: .04em;
+    text-align: center;
+    margin: 1.5rem 0 0;
+  }
+  button, a.btn {
+    appearance: none;
+    display: block;
+    width: 100%;
+    padding: 1rem;
+    margin: 0 0 .75rem;
+    font: inherit;
+    font-size: 1.05rem;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    color: var(--text);
+    background: transparent;
+    border: 1px solid var(--text);
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  button.fill, a.btn.fill { background: #fff; color: #000; }
+  button:disabled { opacity: .35; cursor: not-allowed; }
+  input[type="text"], input[type="password"], input:not([type]), input[type="email"] {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--text);
+    color: var(--text);
+    padding: 1rem;
+    font: inherit;
+    font-size: 1.05rem;
+    border-radius: 2px;
+    margin: 0 0 .75rem;
+  }
+  form.stack { display: flex; flex-direction: column; }
+  form.inline { display: flex; gap: .5rem; margin: 0 0 .5rem; }
+  form.inline input { flex: 1; margin: 0; }
+  form.inline button { width: auto; margin: 0; padding: .85rem 1rem; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: .65rem 0;
+    border-top: 1px solid var(--line);
+    font-size: .94rem;
+  }
+  li button { width: auto; margin: 0; padding: .4rem .7rem; font-size: .9rem; font-weight: 500; }
+  #busy {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 20;
+  }
+  #busy .spin {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 36px;
+    height: 36px;
+    margin: -18px 0 0 -18px;
+    border: 2px solid transparent;
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #err { display: none; }
+  #gate { display: flex; flex: 1; flex-direction: column; }
+  #gate .gate-body { flex: 1; padding-top: 3.5rem; }
+  #hub { display: none; flex: 1; flex-direction: column; }
+  .hub-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: .85rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .hub-head h1 { margin: 0; font-size: 1.35rem; flex: 1; }
+  button.profile {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border: 1px solid #fff;
+    border-radius: 50%;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  button.profile::before {
+    content: "";
+    display: block;
+    width: 10px;
+    height: 10px;
+    border: 1px solid #fff;
+    border-radius: 50%;
+    margin: 5px auto 1px;
+  }
+  button.profile::after {
+    content: "";
+    display: block;
+    width: 18px;
+    height: 10px;
+    border: 1px solid #fff;
+    border-radius: 9px 9px 0 0;
+    margin: 0 auto;
+  }
+  .hero { text-align: center; padding: 2.25rem 0 1.5rem; }
+  .hero-square {
+    width: 168px;
+    height: 168px;
+    border: 1px solid #fff;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .hero-square.offline { border-color: var(--muted); }
+  .hero-square.lockdown { background: #fff; }
+  .hero-square.online::after {
+    content: "";
+    width: 36px;
+    height: 36px;
+    border: 1px solid #fff;
+  }
+  .hero .meta { margin: 1rem 0 0; }
+  .toggles { border-top: 1px solid var(--line); margin-bottom: .5rem; }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .85rem 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 1.05rem;
+    font-weight: 500;
+  }
+  .toggle-row:last-child { border-bottom: 0; }
+  input.switch {
+    appearance: none;
+    width: 51px;
+    height: 31px;
+    background: var(--off);
+    border-radius: 16px;
+    position: relative;
+    cursor: pointer;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    flex-shrink: 0;
+  }
+  input.switch::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 27px;
+    height: 27px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform .15s;
+  }
+  input.switch:checked { background: var(--toggle); }
+  input.switch:checked::after { transform: translateX(20px); }
+  input.switch:disabled { opacity: .35; cursor: not-allowed; }
+  details.fold { border-top: 1px solid var(--line); }
+  details.fold > summary {
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 0;
+    font-size: 1.05rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  details.fold > summary::-webkit-details-marker { display: none; }
+  details.fold > summary::after { content: "⌄"; color: var(--dim); font-weight: 400; }
+  details.fold[open] > summary::after { transform: rotate(180deg); }
+  .fold-body { padding-bottom: 1rem; }
+  .device { margin: 0 0 .85rem; }
+  .device .name { font-size: 1.05rem; margin-bottom: .2rem; }
+  .code { font-size: 2rem; letter-spacing: .35em; font-weight: 600; margin: .5rem 0; }
+  #profile-sheet {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.72);
+    z-index: 10;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 1.75rem;
+  }
+  #profile-sheet .sheet {
+    width: 100%;
+    max-width: 28rem;
+    background: #000;
+    border: 1px solid var(--line);
+    padding: 1.5rem;
+  }
+  #profile-sheet .sheet h2 { font-size: 1.35rem; margin-bottom: .4rem; }
+  a { color: var(--dim); }
 </style>
 </head>
 <body>
 <main>
-  <h1>Sandcloud</h1>
-  <p class="meta" id="via"></p>
-  <p id="busy">Working…</p>
-  <p class="warn" id="err" style="display:none"></p>
+  <div id="busy"><div class="spin" aria-label="Working"></div></div>
+  <p class="warn" id="err"></p>
 
   <div id="gate">
-    <div class="card">
-      <div class="name" id="gate-title">Sign in</div>
-      <div class="meta" id="gate-msg">Sign in to manage your router from anywhere. Google, Apple, or email — same account as the app.</div>
-      <div id="google-btn" style="margin-top:1rem">
+    <div class="gate-body">
+      <h1 id="gate-title">Log in / sign up</h1>
+      <p class="meta" id="gate-msg">Sign in to manage your router from anywhere.</p>
+      <div id="google-btn">
         <div id="signin-stack">
-        <button type="button" id="signin-btn" class="big on">Sign in with Google</button>
-      <p class="toolbar" style="margin-top:.75rem">
-        <button type="button" id="apple-btn" class="big">Sign in with Apple</button>
-      </p>
-      <p class="toolbar">
-        <button type="button" id="email-btn" class="big">Sign in with email</button>
-      </p>
+          <button type="button" id="email-btn">With email</button>
+          <button type="button" id="apple-btn">Apple</button>
+          <button type="button" id="signin-btn">Google</button>
         </div>
-        <div id="signed-in-bar" style="display:none;margin-top:1rem">
-          <div class="meta" id="signed-in-email"></div>
-          <p class="toolbar"><button type="button" id="gate-logout">Sign out</button></p>
+        <div id="signed-in-bar" style="display:none">
+          <p class="meta" id="signed-in-email"></p>
+          <button type="button" id="gate-logout" class="fill">Sign out</button>
         </div>
       </div>
-      <p class="meta" style="margin-top:1rem">Hide My Email from Apple is a different account than Google or your real address. Use the same method next time. Email passwords need 12+ characters with upper, lower, and a number.</p>
-      <details class="fallback" id="pair-details" style="display:none">
-        <summary>Enter a code instead</summary>
-        <form id="pair-form" style="display:flex">
-          <input name="code" placeholder="6-digit code" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
-          <button type="submit">Connect</button>
-        </form>
+      <details class="fold" id="pair-details" style="display:none">
+        <summary>With code</summary>
+        <div class="fold-body">
+          <form id="pair-form" class="inline">
+            <input name="code" placeholder="6-digit code" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+            <button type="submit">Connect</button>
+          </form>
+        </div>
       </details>
-      <p class="meta" id="gate-hint" style="margin-top:.75rem;display:none"></p>
-      <p class="toolbar"><button type="button" id="retry-btn" style="display:none">Try again</button></p>
+      <p class="meta" id="gate-hint" style="display:none"></p>
+      <button type="button" id="retry-btn" style="display:none">Try again</button>
     </div>
+    <p class="wordmark">sandcloud</p>
   </div>
 
   <div id="hub">
-    <div class="card">
-      <div class="row">
-        <div>
-          <div class="name" id="ssid">Sandcloud</div>
-          <div class="meta" id="summary">loading…</div>
-          <div id="pair-wrap" style="display:none;margin-top:.75rem">
-            <div class="meta">Link this router to your Sandcloud account. Tap the NFC sticker or the button — no code to type.</div>
-            <a id="pair-google" class="big on" style="margin-top:.75rem" href="#">Connect this router</a>
-            <div class="meta" style="margin-top:.6rem">Same link goes on the NFC tag. iPhone and Android both open Sandcloud over cellular, then sign in. The tag does not expire.</div>
-            <label class="meta" style="display:block;margin-top:.75rem">NFC tag URL (NTAG213 or larger, write as a website/URL record)</label>
-            <input id="nfc-url" readonly style="margin-top:.35rem" onclick="this.select()">
-            <div class="meta" style="margin-top:.45rem">Android can also store Sandcloud Wi-Fi on the same tag so tap joins the network. iPhone cannot join Wi-Fi from NFC — pairing still works; they join Wi-Fi separately.</div>
-            <details class="fallback">
-              <summary>Use a one-time code instead</summary>
-              <div class="code" id="pair-code"></div>
-              <div class="meta">Only if NFC and the button do not work. Expires in 10 minutes.</div>
-            </details>
-          </div>
-        </div>
-        <div id="health"></div>
+    <div class="hub-head">
+      <h1 id="ssid">Sandcloud</h1>
+      <button type="button" class="profile" id="profile-btn" aria-label="Account"></button>
+    </div>
+
+    <div class="hero">
+      <div id="health" class="hero-square online"></div>
+      <p class="meta" id="summary"></p>
+    </div>
+
+    <div class="toggles">
+      <label class="toggle-row">Ad Block <input type="checkbox" id="adblock" class="switch"></label>
+      <label class="toggle-row">Lockdown <input type="checkbox" id="kill" class="switch"></label>
+      <label class="toggle-row" id="vpn-row">VPN <input type="checkbox" id="vpn" class="switch"></label>
+    </div>
+
+    <details class="fold">
+      <summary>Devices</summary>
+      <div class="fold-body" id="devices"></div>
+    </details>
+
+    <details class="fold">
+      <summary>Wi-Fi</summary>
+      <div class="fold-body">
+        <div class="meta" id="wifi-heading"></div>
+        <div class="meta" id="wifi-current"></div>
+        <form id="wifi-form" class="stack">
+          <input id="wifi-ssid" maxlength="32" placeholder="Network name" autocomplete="off">
+          <input id="wifi-pass" type="password" maxlength="63" placeholder="New password (8+ characters)" autocomplete="new-password">
+          <input id="wifi-pass2" type="password" maxlength="63" placeholder="Confirm new password" autocomplete="new-password">
+          <button type="submit" id="wifi-save">Save Wi-Fi</button>
+        </form>
       </div>
-      <p class="toolbar" id="remote-toolbar" style="display:none">
-        <button type="button" id="logout">Sign out</button>
-        <button type="button" id="unpair">Disconnect router</button>
-      </p>
-    </div>
+    </details>
 
-    <h2>Wi-Fi name and password</h2>
-    <div class="card">
-      <div class="name" id="wifi-heading">Sandcloud</div>
-      <div class="meta" id="wifi-current">Factory default is Sandcloud / hubpass42 until you change it. Printed on the box.</div>
-      <div class="meta">Leave the password blank to keep the current one. Saving kicks every phone off until they join the new name. Use cellular if you are on this Wi-Fi now.</div>
-      <form id="wifi-form" class="stack">
-        <input id="wifi-ssid" maxlength="32" placeholder="Network name" autocomplete="off">
-        <input id="wifi-pass" type="password" maxlength="63" placeholder="New password (8+ characters, or blank to keep)" autocomplete="new-password">
-        <input id="wifi-pass2" type="password" maxlength="63" placeholder="Confirm new password" autocomplete="new-password">
-        <button type="submit" id="wifi-save">Save Wi-Fi</button>
-      </form>
-    </div>
-
-    <div class="card">
-      <div class="name">Public IP</div>
-      <div class="meta" id="public-ip">—</div>
-      <div class="meta" id="vpn-meta">VPN not configured</div>
-      <div class="toolbar">
-        <button type="button" id="vpn">VPN off</button>
+    <details class="fold">
+      <summary>Network</summary>
+      <div class="fold-body">
+        <div class="meta">Public IP <span id="public-ip">—</span></div>
+        <div class="meta" id="vpn-meta"></div>
+        <div class="meta" id="ag-meta"></div>
         <button type="button" id="wan-renew">Renew home WAN lease</button>
       </div>
-      <div class="meta">VPN changes the address websites see (needs WireGuard on the Pi). Renewing the home lease sometimes changes your ISP address, often does not.</div>
-    </div>
+    </details>
 
-    <button class="big off" id="kill" type="button">Internet off · LAN stays on</button>
-
-    <div class="card row" style="margin-top:1rem">
-      <div>
-        <div class="name">Ad blocking</div>
-        <div class="meta" id="ag-meta">AdGuard</div>
+    <details class="fold">
+      <summary>Redirect shield</summary>
+      <div class="fold-body">
+        <label class="toggle-row">On <input type="checkbox" id="redirect-shield" class="switch"></label>
+        <div class="meta" id="shield-meta"></div>
+        <div id="shield-recent-card" style="display:none">
+          <div class="meta">Recently blocked</div>
+          <ul id="shield-recent"></ul>
+        </div>
       </div>
-      <button type="button" id="adblock">On</button>
-    </div>
+    </details>
 
-    <div class="card row">
-      <div>
-        <div class="name">Redirect shield</div>
-        <div class="meta" id="shield-meta">Stops sketchy pages from bouncing you to malware, phishing, and popup hops.</div>
+    <details class="fold">
+      <summary>Block a site</summary>
+      <div class="fold-body">
+        <div class="meta">Blocked when internet is on (AdGuard).</div>
+        <form id="block-form" class="inline"><input name="domain" placeholder="tiktok.com" autocomplete="off"><button type="submit">Block</button></form>
+        <ul id="blocklist"></ul>
       </div>
-      <button type="button" id="redirect-shield">On</button>
-    </div>
-    <div class="card" id="shield-recent-card" style="display:none">
-      <div class="meta">Recently blocked</div>
-      <ul id="shield-recent"></ul>
-    </div>
+    </details>
 
-    <h2>Devices</h2>
-    <div id="devices"></div>
+    <details class="fold">
+      <summary>Always allow</summary>
+      <div class="fold-body">
+        <div class="meta">These domains can still reach the internet while Lockdown is on.</div>
+        <form id="allow-form" class="inline"><input name="domain" placeholder="example.com" autocomplete="off"><button type="submit">Always allow</button></form>
+        <ul id="allowlist"></ul>
+      </div>
+    </details>
 
-    <h2>Block a site</h2>
-    <div class="card">
-      <div class="meta">Blocked when internet is on (AdGuard).</div>
-      <form id="block-form"><input name="domain" placeholder="tiktok.com" autocomplete="off"><button type="submit">Block</button></form>
-      <ul id="blocklist"></ul>
-    </div>
+    <details class="fold" id="pair-fold" style="display:none">
+      <summary>Pairing</summary>
+      <div class="fold-body" id="pair-wrap">
+        <div class="meta">Link this router to your Sandcloud account. Tap the NFC sticker or the button — no code to type.</div>
+        <a id="pair-google" class="btn" href="#">Connect this router</a>
+        <div class="meta">Same link goes on the NFC tag. The tag does not expire.</div>
+        <div class="meta">NFC tag URL (NTAG213 or larger, write as a website/URL record)</div>
+        <input id="nfc-url" readonly onclick="this.select()">
+        <div class="meta">Android can also store Sandcloud Wi-Fi on the same tag so tap joins the network. iPhone cannot join Wi-Fi from NFC — pairing still works; they join Wi-Fi separately.</div>
+        <details class="fold">
+          <summary>Use a one-time code instead</summary>
+          <div class="fold-body">
+            <div class="code" id="pair-code"></div>
+            <div class="meta">Only if NFC and the button do not work. Expires in 10 minutes.</div>
+          </div>
+        </details>
+      </div>
+    </details>
 
-    <h2>Always allow (even when internet is cut)</h2>
-    <div class="card">
-      <div class="meta">These domains can still reach the internet while the kill switch is on. CDN IPs may rotate.</div>
-      <form id="allow-form"><input name="domain" placeholder="example.com" autocomplete="off"><button type="submit">Always allow</button></form>
-      <ul id="allowlist"></ul>
+    <p class="wordmark">sandcloud</p>
+
+    <div id="profile-sheet">
+      <div class="sheet">
+        <h2>Account</h2>
+        <p class="meta" id="hub-email"></p>
+        <p class="meta" id="via"></p>
+        <div id="remote-toolbar" style="display:none">
+          <button type="button" id="logout">Sign out</button>
+          <button type="button" id="unpair" class="fill">Disconnect router</button>
+        </div>
+        <button type="button" id="profile-close">Close</button>
+      </div>
     </div>
   </div>
 </main>
@@ -233,14 +449,14 @@ function showGate(title, msg, opts) {
   opts = opts || {};
   const authed = SandcloudAuth.isSignedIn();
   const wantSignin = opts.signin !== false && !authed;
-  $("gate").style.display = "block";
+  $("gate").style.display = "flex";
   $("hub").style.display = "none";
   $("gate-title").textContent = title;
   $("gate-msg").textContent = msg;
   $("pair-details").style.display = opts.pair ? "block" : "none";
   $("gate-hint").style.display = opts.hint ? "block" : "none";
   $("gate-hint").textContent = opts.hint || "";
-  $("retry-btn").style.display = opts.retry ? "inline-block" : "none";
+  $("retry-btn").style.display = opts.retry ? "block" : "none";
   $("signin-stack").style.display = wantSignin ? "block" : "none";
   $("signed-in-bar").style.display = authed ? "block" : "none";
   $("signed-in-email").textContent = authed
@@ -249,7 +465,7 @@ function showGate(title, msg, opts) {
 }
 function showHub() {
   $("gate").style.display = "none";
-  $("hub").style.display = "block";
+  $("hub").style.display = "flex";
 }
 
 async function authHeaders(jsonBody) {
@@ -288,6 +504,7 @@ function renderState(s, routerStatus) {
   lastStatus = routerStatus || "";
   $("ssid").textContent = (s && s.ssid) || "Sandcloud";
   const online = routerStatus ? routerStatus === "online" : true;
+  const lockdown = !!(s && s.internet === false);
   const wifiName = (s && s.ssid) || "Sandcloud";
   $("wifi-heading").textContent = wifiName;
   $("wifi-current").textContent = wifiName === "Sandcloud"
@@ -301,48 +518,53 @@ function renderState(s, routerStatus) {
   $("wifi-ssid").disabled = (!online && mode === "remote") || busy;
   $("wifi-pass").disabled = (!online && mode === "remote") || busy;
   $("wifi-pass2").disabled = (!online && mode === "remote") || busy;
-  $("summary").textContent = routerStatus ? statusLabel(routerStatus) : ((s && s.lan_ip) || "");
-  $("health").innerHTML = '<span class="dot ' + (online ? "ok" : (routerStatus === "offline" ? "warn" : "bad")) + '"></span>' +
-    (routerStatus ? statusLabel(routerStatus) : "Local");
+  const bits = [];
+  if (routerStatus) bits.push(statusLabel(routerStatus));
+  else if (s && s.lan_ip) bits.push(s.lan_ip);
+  if (s && s.public_ip) bits.push(s.public_ip);
+  $("summary").textContent = bits.join(" · ") || "—";
+  $("health").className = "hero-square " + (lockdown ? "lockdown" : online ? "online" : "offline");
 
   const pairWrap = $("pair-wrap");
+  const pairFold = $("pair-fold");
   if (mode === "lan" && s && (s.claim_token || s.pair_code)) {
+    pairFold.style.display = "block";
     pairWrap.style.display = "block";
     $("pair-code").textContent = s.pair_code || "";
     const href = s.claim_token ? pagesClaimUrl(s.claim_token) : pagesConnectUrl(s.pair_code);
     $("pair-google").href = href;
     $("nfc-url").value = href;
-    $("summary").textContent = "Local control · " + (s.lan_ip || "");
+    $("summary").textContent = "Local control · " + ((s && s.lan_ip) || "");
   } else {
+    pairFold.style.display = "none";
     pairWrap.style.display = "none";
   }
 
-  $("remote-toolbar").style.display = mode === "remote" ? "flex" : "none";
+  $("remote-toolbar").style.display = mode === "remote" ? "block" : "none";
+  $("hub-email").textContent = SandcloudAuth.email() ? SandcloudAuth.email() : "";
   $("public-ip").textContent = (s && s.public_ip) ? s.public_ip : "—";
   const vpn = (s && s.vpn) || {};
   if (!vpn.configured) {
+    $("vpn-row").style.display = "none";
     $("vpn-meta").textContent = "Add /etc/wireguard/wg0.conf on the Pi (see VPN.txt), then turn VPN on.";
     $("vpn").disabled = true;
-    $("vpn").textContent = "VPN unavailable";
+    $("vpn").checked = false;
   } else {
-    $("vpn").disabled = !online && mode === "remote";
-    $("vpn").textContent = vpn.up ? "VPN on" : "VPN off";
-    $("vpn").className = vpn.up ? "on" : "off";
-    $("vpn-meta").textContent = vpn.up ? "Traffic exits through WireGuard" : "VPN configured · currently off";
+    $("vpn-row").style.display = "flex";
+    $("vpn").disabled = (!online && mode === "remote") || busy;
+    $("vpn").checked = !!vpn.up;
+    $("vpn-meta").textContent = vpn.up ? "Traffic exits through WireGuard." : "VPN configured · currently off.";
   }
   $("wan-renew").disabled = (!online && mode === "remote") || busy;
 
   if (!s) return;
-  $("kill").textContent = s.internet ? "Cut internet · keep LAN" : "Restore internet";
-  $("kill").className = "big " + (s.internet ? "off" : "on");
+  $("kill").checked = !s.internet;
   $("kill").disabled = (!online && mode === "remote") || busy;
-  $("ag-meta").textContent = s.adguard ? "AdGuard is up" : "AdGuard is down";
-  $("adblock").textContent = s.adblock ? "On" : "Off";
-  $("adblock").className = s.adblock ? "on" : "off";
+  $("ag-meta").textContent = s.adguard ? "AdGuard is up." : "AdGuard is down.";
+  $("adblock").checked = !!s.adblock;
   $("adblock").disabled = (!online && mode === "remote") || busy;
   const shieldOn = !!(s.adblock && s.redirect_shield);
-  $("redirect-shield").textContent = shieldOn ? "On" : "Off";
-  $("redirect-shield").className = shieldOn ? "on" : "off";
+  $("redirect-shield").checked = shieldOn;
   $("redirect-shield").disabled = (!online && mode === "remote") || busy || !s.adblock;
   const blockedN = Number(s.shield_blocked || 0);
   const queryN = Number(s.shield_queries || 0);
@@ -364,13 +586,14 @@ function renderState(s, routerStatus) {
 
   const box = $("devices");
   const devs = s.devices || [];
-  if (!devs.length) box.innerHTML = '<p class="warn">No clients yet.</p>';
+  const locked = (!online && mode === "remote") || busy;
+  if (!devs.length) box.innerHTML = '<p class="meta">No clients yet.</p>';
   else {
     box.innerHTML = devs.map((d) =>
-      '<div class="card row"><div><div class="name">' + (d.name || d.ip) + '</div>' +
-      '<div class="meta">' + d.ip + (d.mac ? " · " + d.mac : "") + "</div></div>" +
-      '<button type="button" class="' + (d.blocked ? "off" : "on") + '" data-ip="' + d.ip + '" data-blocked="' + (d.blocked ? "1" : "0") + '"' +
-      ((!online && mode === "remote") || busy ? " disabled" : "") + ">" +
+      '<div class="device"><div class="name">' + (d.name || d.ip) + "</div>" +
+      '<div class="meta">' + d.ip + (d.mac ? " · " + d.mac : "") + "</div>" +
+      '<button type="button" class="' + (d.blocked ? "fill" : "") + '" data-ip="' + d.ip + '" data-blocked="' + (d.blocked ? "1" : "0") + '"' +
+      (locked ? " disabled" : "") + ">" +
       (d.blocked ? "Blocked" : "Allowed") + "</button></div>"
     ).join("");
     box.querySelectorAll("button[data-ip]").forEach((b) => {
@@ -380,8 +603,8 @@ function renderState(s, routerStatus) {
   const list = (id, arr, kind) => {
     $(id).innerHTML = (arr || []).map((d) =>
       "<li><span>" + d + '</span><button type="button" data-kind="' + kind + '" data-d="' + d + '"' +
-      ((!online && mode === "remote") || busy ? " disabled" : "") + ">Remove</button></li>"
-    ).join("") || "<li><span style='color:#8a8a8a'>None</span></li>";
+      (locked ? " disabled" : "") + ">Remove</button></li>"
+    ).join("") || "<li><span class='meta'>None</span></li>";
     $(id).querySelectorAll("button[data-d]").forEach((b) => {
       b.onclick = () => cmd("/api/list", { kind: b.dataset.kind, domain: b.dataset.d, remove: true });
     });
@@ -435,7 +658,7 @@ async function refreshRemote() {
   setErr("");
   try {
     if (!SandcloudAuth.isSignedIn()) {
-      showGate("Sign in", "Sign in to manage your router from anywhere.", { signin: true });
+      showGate("Log in / sign up", "Sign in to manage your router from anywhere.", { signin: true });
       return;
     }
     const pending = SandcloudAuth.pendingClaim() || SandcloudAuth.pendingConnect();
@@ -453,7 +676,7 @@ async function refreshRemote() {
       return;
     }
     if (data.status === "no_router") {
-      showGate("Signed in · no router yet", "This account is not linked to a router. Tap the NFC sticker, or enter the 6-digit code from the router’s Wi-Fi page.", {
+      showGate("Connect this router?", "This account is not linked to a router. Tap the NFC sticker, or enter the 6-digit code from the router’s Wi-Fi page.", {
         pair: true,
         hint: "Local page is usually http://10.10.10.1:8080 — then tap Connect this router.",
         signin: false,
@@ -546,16 +769,17 @@ async function pairRouter(token) {
   }
 }
 $("unpair").onclick = async () => {
+  $("profile-sheet").style.display = "none";
   setBusy(true);
   try {
-    if (awsApi()) await awsfetch("/unpair", {});
-    else await wfetch("/unpair", {});
+    await wfetch("/unpair", {});
     await refreshRemote();
   } finally {
     setBusy(false);
   }
 };
 $("logout").onclick = async () => {
+  $("profile-sheet").style.display = "none";
   setBusy(true);
   try {
     await SandcloudAuth.logout();
@@ -565,10 +789,10 @@ $("logout").onclick = async () => {
 };
 $("gate-logout").onclick = () => SandcloudAuth.logout();
 $("retry-btn").onclick = () => refreshRemote();
-$("kill").onclick = () => cmd("/api/internet", { enabled: !(state && state.internet) });
-$("adblock").onclick = () => cmd("/api/adblock", { enabled: !(state && state.adblock) });
-$("redirect-shield").onclick = () => cmd("/api/redirect-shield", { enabled: !(state && state.redirect_shield) });
-$("vpn").onclick = () => cmd("/api/vpn", { enabled: !(state && state.vpn && state.vpn.up) });
+$("kill").onchange = () => cmd("/api/internet", { enabled: !$("kill").checked });
+$("adblock").onchange = () => cmd("/api/adblock", { enabled: $("adblock").checked });
+$("redirect-shield").onchange = () => cmd("/api/redirect-shield", { enabled: $("redirect-shield").checked });
+$("vpn").onchange = () => cmd("/api/vpn", { enabled: $("vpn").checked });
 $("wan-renew").onclick = () => {
   if (!confirm("Renew the Pi’s home ethernet lease? Your public IP may stay the same.")) return;
   cmd("/api/wan-renew", {});
@@ -609,11 +833,38 @@ $("wifi-form").onsubmit = async (e) => {
 $("block-form").onsubmit = (e) => { e.preventDefault(); cmd("/api/list", { kind: "blocklist", domain: e.target.domain.value }); e.target.reset(); };
 $("allow-form").onsubmit = (e) => { e.preventDefault(); cmd("/api/list", { kind: "allowlist", domain: e.target.domain.value }); e.target.reset(); };
 
+$("profile-btn").onclick = () => { $("profile-sheet").style.display = "flex"; };
+$("profile-close").onclick = () => { $("profile-sheet").style.display = "none"; };
+$("profile-sheet").onclick = (e) => {
+  if (e.target.id === "profile-sheet") $("profile-sheet").style.display = "none";
+};
+
 (async () => {
   if (sameOriginPi()) {
+    try {
+      const r = await fetch("/api/state");
+      const s = await r.json();
+      if (s.guest_view) {
+        mode = "remote";
+        $("via").textContent = "On " + ((s && s.ssid) || "Sandcloud") + " · owner sign-in required";
+        SandcloudAuth.captureConnectFromUrl();
+        if (SandcloudAuth.isSignedIn()) {
+          await refreshRemote();
+        } else {
+          showGate(
+            "Connected to Sandcloud WiFi",
+            "You're on the network. Only the owner account can change router settings.",
+            { signin: true, pair: false },
+          );
+        }
+        return;
+      }
+    } catch (e) {
+      /* fall through to local setup */
+    }
     mode = "lan";
     lanBase = "";
-    $("via").textContent = "Local Pi control";
+    $("via").textContent = "Local setup (pair this router)";
     showHub();
     try {
       const r = await fetch("/api/state");
@@ -626,6 +877,16 @@ $("allow-form").onsubmit = (e) => { e.preventDefault(); cmd("/api/list", { kind:
       try {
         const x = await fetch("/api/state");
         const st = await x.json();
+        if (st.guest_view) {
+          mode = "remote";
+          $("via").textContent = "On " + (st.ssid || "Sandcloud") + " · owner sign-in required";
+          showGate(
+            "Connected to Sandcloud WiFi",
+            "You're on the network. Only the owner account can change router settings.",
+            { signin: true, pair: false },
+          );
+          return;
+        }
         renderState(st, "online");
       } catch (e) {}
     }, 8000);
@@ -649,7 +910,7 @@ $("allow-form").onsubmit = (e) => { e.preventDefault(); cmd("/api/list", { kind:
     setErr("Sign-in failed: " + (e.message || e));
   }
   if ((SandcloudAuth.pendingClaim() || SandcloudAuth.pendingConnect()) && !SandcloudAuth.isSignedIn()) {
-    showGate("Sign in to pair", "This tap is from your router. Sign in with Google, Apple, or email to own it.", {
+    showGate("Log in / sign up", "This tap is from your router. Sign in with Google, Apple, or email to own it.", {
       signin: true,
       hint: "Use the same method every time. Apple Hide My Email is a different account.",
     });
@@ -657,7 +918,7 @@ $("allow-form").onsubmit = (e) => { e.preventDefault(); cmd("/api/list", { kind:
   }
   await refreshRemote();
   setInterval(() => {
-    if (!document.hidden && $("hub").style.display === "block") refreshRemote();
+    if (!document.hidden && $("hub").style.display === "flex") refreshRemote();
   }, 120000);
 })();
 </script>
